@@ -373,8 +373,8 @@
             ball.y += ball.dy;
 
             let botCenter = bot.x + bot.w / 2;
-            let botSpeed = 0.06 + (botLives * 0.005); // Gets harder as bot loses, but starts easier
-            let targetX = ball.x + ball.dx * 8; // More predictive movement
+            let botSpeed = 0.03 + (botLives * 0.003); // Gets harder as bot loses, but starts easier
+            let targetX = ball.x + ball.dx * 6; // More predictive movement
             bot.x += (targetX - botCenter) * botSpeed; 
             
             if (bot.x < 15) bot.x = 15;
