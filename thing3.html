@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Match Point</title>
+    <style>
+        :root {
+            --court-dark: #123d24;
+            --court-light: #1f613a;
+            --accent: #d4ff00; /* Neon Tennisgelb */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--court-dark);
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Roboto, Helvetica, sans-serif;
+            overflow: hidden; 
+            touch-action: none; 
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* Premium UI Overlays */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        /* Subtile Tennisball-Leben (Herzen) */
+        .lives-container {
+            position: absolute;
+            right: 20px;
+            display: flex;
+            gap: 8px;
+            opacity: 0.5;
+            z-index: 5;
+            transition: opacity 0.3s;
+        }
+
+        #bot-lives { top: 25px; }
+        #player-lives { bottom: 25px; }
+
+        .life {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: var(--accent);
+            box-shadow: 0 0 8px rgba(212, 255, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        /* Kleine weiße Linien für die UI-Tennisbälle */
+        .life::before, .life::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+        }
+        .life::before { top: 2px; left: -7px; }
+        .life::after { top: 2px; right: -7px; }
+
+        .life.lost {
+            background-color: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: none;
+        }
+        .life.lost::before, .life.lost::after { display: none; }
+
+        .screen {
+            background: rgba(18, 61, 36, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 45px 30px;
+            border-radius: 24px;
+            text-align: center;
+            pointer-events: auto; 
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+            display: none;
+            width: 85%;
+            max-width: 360px;
+            transform: scale(0.95);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #start-screen {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        .screen.active {
+            display: block;
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        h1 { 
+            margin: 0 0 15px 0; 
+            font-size: 32px; 
+            font-weight: 700;
+            color: #fff; 
+            letter-spacing: -0.5px;
+        }
+        
+        p { 
+            margin: 0 0 35px 0; 
+            color: rgba(255, 255, 255, 0.8); 
+            font-size: 16px; 
+            line-height: 1.6; 
+        }
+
+        button {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 16px 45px;
+            font-size: 17px;
+            font-weight: 700;
+            border-radius: 40px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+            box-shadow: 0 8px 20px rgba(212, 255, 0, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.92);
+            box-shadow: 0 4px 10px rgba(212, 255, 0, 0.3);
+        }
+
+        .lose-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            box-shadow: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="lives-container" id="bot-lives"></div>
+    <div class="lives-container" id="player-lives"></div>
+
+    <div id="ui-layer">
+        <div class="screen active" id="start-screen">
+            <button onclick="startGame()">Aufschlag</button>
+        </div>
+
+        <div class="screen" id="win-screen">
+            <h1>Spiel, Satz, Sieg.</h1>
+            <p>Okay, starke Rückhand. Du bist offiziell qualifiziert.<br><br>Mach einen Screenshot und schick ihn mir rüber.</p>
+        </div>
+
+        <div class="screen" id="lose-screen">
+            <h1>Aus im Netz.</h1>
+            <p>Das war gar nichts. Komm, wir tun so, als wäre das nur das Warm-up gewesen.</p>
+            <button class="lose-btn" onclick="resetGame()">Revanche</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let gameState = 'start'; 
+        let playerLives = 3;
+        let botLives = 3;
+
+        // Collision Boxes (Unsichtbar, werden für Physik genutzt)
+        const paddleWidth = 70; 
+        const paddleHeight = 16;
+        const marginY = 60; 
+        
+        const player = { x: width / 2 - paddleWidth / 2, y: height - marginY - paddleHeight, w: paddleWidth, h: paddleHeight };
+        const bot = { x: width / 2 - paddleWidth / 2, y: marginY, w: paddleWidth, h: paddleHeight };
+        
+        const ball = { 
+            x: width / 2, y: height / 2, 
+            size: 10, dx: 0, dy: 0, 
+            baseSpeed: 4.5, speed: 4.5, maxSpeed: 11, speedIncrement: 0.2 
+        };
+
+        let trails = [];
+
+        function movePlayer(clientX) {
+            if (gameState !== 'playing') return;
+            player.x = clientX - player.w / 2; 
+            if (player.x < 15) player.x = 15;
+            if (player.x + player.w > width - 15) player.x = width - 15 - player.w;
+        }
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); 
+            movePlayer(e.touches[0].clientX);
+        });
+
+        canvas.addEventListener('mousemove', (e) => movePlayer(e.clientX));
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            setTimeout(() => document.getElementById(id).classList.add('active'), 50);
+        }
+
+        function startGame() {
+            showScreen('none'); 
+            playerLives = 3;
+            botLives = 3;
+            updateLivesDisplay();
+            gameState = 'playing';
+            resetBall(1); 
+        }
+
+        function resetGame() { startGame(); }
+
+        function resetBall(direction) {
+            ball.x = width / 2;
+            ball.y = height / 2;
+            ball.speed = ball.baseSpeed;
+            let angle = (Math.random() * Math.PI / 3) - (Math.PI / 6); 
+            ball.dx = Math.sin(angle) * ball.speed;
+            ball.dy = Math.cos(angle) * ball.speed * direction;
+            trails = [];
+        }
+
+        function updateLivesDisplay() {
+            const pContainer = document.getElementById('player-lives');
+            const bContainer = document.getElementById('bot-lives');
+            
+            pContainer.innerHTML = '';
+            bContainer.innerHTML = '';
+
+            for(let i=0; i<3; i++) {
+                pContainer.innerHTML += `<div class="life ${i >= playerLives ? 'lost' : ''}"></div>`;
+                bContainer.innerHTML += `<div class="life ${i >= botLives ? 'lost' : ''}"></div>`;
+            }
+
+            if (botLives <= 0) {
+                gameState = 'end';
+                showScreen('win-screen');
+            } else if (playerLives <= 0) {
+                gameState = 'end';
+                showScreen('lose-screen');
+            }
+        }
+
+        function drawCourt() {
+            let bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+            bgGrad.addColorStop(0, '#123d24');
+            bgGrad.addColorStop(1, '#1f613a');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            const margin = 15;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.fillRect(margin, margin, width - margin*2, height - margin*2);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(margin + 5, margin + 5, width - margin*2 - 10, height - margin*2 - 10);
+
+            ctx.setLineDash([6, 10]);
+            ctx.beginPath();
+            ctx.moveTo(margin + 5, height / 2);
+            ctx.lineTo(width - margin - 5, height / 2);
+            ctx.stroke();
+            ctx.setLineDash([]); 
+
+            const serveDist = height / 3.5;
+            ctx.beginPath();
+            ctx.moveTo(margin + 5, height / 2 - serveDist);
+            ctx.lineTo(width - margin - 5, height / 2 - serveDist);
+            ctx.moveTo(margin + 5, height / 2 + serveDist);
+            ctx.lineTo(width - margin - 5, height / 2 + serveDist);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(width / 2, height / 2 - serveDist);
+            ctx.lineTo(width / 2, height / 2 + serveDist);
+            ctx.stroke();
+        }
+
+        function drawTennisRacket(x, y, w, h, isBot) {
+            const centerX = x + w / 2;
+            const centerY = y + h / 2;
+            
+            ctx.save();
+            
+            // Schatten
+            ctx.shadowColor = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
+
+            // Griff
+            ctx.fillStyle = '#222';
+            if (isBot) {
+                ctx.fillRect(centerX - 6, y - 35, 12, 35); // Griff nach oben
+            } else {
+                ctx.fillRect(centerX - 6, y + h, 12, 35); // Griff nach unten
+            }
+
+            // Schlägerkopf (Rahmen)
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, w / 2, h / 2 + 6, 0, 0, Math.PI * 2);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.stroke();
+            
+            ctx.shadowColor = 'transparent';
+
+            // Saiten
+            ctx.clip(); 
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            for(let i = -w/2; i < w/2; i += 5) {
+                ctx.beginPath(); ctx.moveTo(centerX + i, centerY - h - 10); ctx.lineTo(centerX + i, centerY + h + 10); ctx.stroke();
+            }
+            for(let j = -h - 10; j < h + 10; j += 5) {
+                ctx.beginPath(); ctx.moveTo(centerX - w, centerY + j); ctx.lineTo(centerX + w, centerY + j); ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+
+        function drawActualTennisBall(x, y, radius) {
+            ctx.save();
+            
+            // Schatten & Glow
+            ctx.shadowColor = 'rgba(212, 255, 0, 0.4)';
+            ctx.shadowBlur = 12;
+            
+            // Grundform
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#d4ff00';
+            ctx.fill();
+
+            // Weiße Linien
+            ctx.shadowColor = 'transparent';
+            ctx.clip(); 
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            ctx.arc(x - radius * 0.8, y, radius * 0.9, -Math.PI / 2, Math.PI / 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(x + radius * 0.8, y, radius * 0.9, Math.PI / 2, Math.PI * 1.5);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            trails.push({x: ball.x, y: ball.y});
+            if (trails.length > 5) trails.shift();
+
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            let botCenter = bot.x + bot.w / 2;
+            let botSpeed = 0.065; 
+            bot.x += (ball.x - botCenter) * botSpeed; 
+            
+            if (bot.x < 15) bot.x = 15;
+            if (bot.x + bot.w > width - 15) bot.x = width - 15 - bot.w;
+
+            if (ball.x - ball.size < 15 || ball.x + ball.size > width - 15) {
+                ball.dx *= -1;
+                ball.x = ball.x - ball.size < 15 ? 15 + ball.size : width - 15 - ball.size; 
+            }
+
+            if (ball.y + ball.size > player.y && ball.y - ball.size < player.y + player.h && 
+                ball.x > player.x - 5 && ball.x < player.x + player.w + 5 && ball.dy > 0) {
+                
+                let collidePoint = ball.x - (player.x + player.w / 2);
+                collidePoint = collidePoint / (player.w / 2); 
+                let angle = collidePoint * (Math.PI / 2.5); 
+                
+                if(ball.speed < ball.maxSpeed) ball.speed += ball.speedIncrement; 
+                ball.dx = Math.sin(angle) * ball.speed;
+                ball.dy = -Math.cos(angle) * ball.speed;
+            }
+
+            if (ball.y - ball.size < bot.y + bot.h && ball.y + ball.size > bot.y && 
+                ball.x > bot.x - 5 && ball.x < bot.x + bot.w + 5 && ball.dy < 0) {
+                
+                let collidePoint = ball.x - (bot.x + bot.w / 2);
+                collidePoint = collidePoint / (bot.w / 2);
+                let angle = collidePoint * (Math.PI / 2.5);
+                
+                if(ball.speed < ball.maxSpeed) ball.speed += ball.speedIncrement;
+                ball.dx = Math.sin(angle) * ball.speed;
+                ball.dy = Math.cos(angle) * ball.speed;
+            }
+
+            if (ball.y < 0) {
+                botLives--;
+                updateLivesDisplay();
+                if(gameState === 'playing') resetBall(1);
+            } else if (ball.y > height) {
+                playerLives--;
+                updateLivesDisplay();
+                if(gameState === 'playing') resetBall(-1);
+            }
+        }
+
+        function draw() {
+            drawCourt();
+
+            if (gameState === 'playing') {
+                ctx.beginPath();
+                for(let i=0; i<trails.length; i++) {
+                    ctx.lineTo(trails[i].x, trails[i].y);
+                }
+                ctx.strokeStyle = 'rgba(212, 255, 0, 0.2)';
+                ctx.lineWidth = ball.size;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Zeichne die neuen Assets
+                drawTennisRacket(player.x, player.y, player.w, player.h, false);
+                drawTennisRacket(bot.x, bot.y, bot.w, bot.h, true);
+                drawActualTennisBall(ball.x, ball.y, ball.size);
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        document.getElementById('bot-lives').innerHTML = '';
+        document.getElementById('player-lives').innerHTML = '';
+        loop();
+    </script>
+</body>
+</html>
