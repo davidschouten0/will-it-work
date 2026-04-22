@@ -26,6 +26,8 @@
 
         canvas {
             display: block;
+            width: 100vw;
+            height: 100vh;
         }
 
         /* Premium UI Overlays */
@@ -198,6 +200,15 @@
         const ctx = canvas.getContext('2d');
 
         let width, height;
+        
+        // Collision Boxes (Unsichtbar, werden für Physik genutzt)
+        let paddleWidth = 85; 
+        let paddleHeight = 16;
+        let marginY = 60;
+        
+        let player = { x: 0, y: 0, w: paddleWidth, h: paddleHeight };
+        let bot = { x: 0, y: 0, w: paddleWidth, h: paddleHeight };
+        
         function resize() {
             const dpr = window.devicePixelRatio || 1;
             width = window.innerWidth;
@@ -205,10 +216,22 @@
             canvas.width = width * dpr;
             canvas.height = height * dpr;
             ctx.scale(dpr, dpr);
+            
+            // Update paddle positions after resize
+            player.x = width / 2 - paddleWidth / 2;
+            player.y = height - marginY - paddleHeight;
+            bot.x = width / 2 - paddleWidth / 2;
+            bot.y = marginY;
+            
+            // Reset ball to center if not playing
+            if(gameState === 'start') {
+                ball.x = width / 2;
+                ball.y = height / 2;
+            }
         }
         window.addEventListener('resize', resize);
-        resize();
-
+        resize(); 
+        
         let gameState = 'start'; 
         let playerLives = 3;
         let botLives = 3;
@@ -216,12 +239,6 @@
         let playerScore = 0;
 
         // Collision Boxes (Unsichtbar, werden für Physik genutzt)
-        const paddleWidth = 85; 
-        const paddleHeight = 16;
-        const marginY = 60; 
-        
-        const player = { x: width / 2 - paddleWidth / 2, y: height - marginY - paddleHeight, w: paddleWidth, h: paddleHeight };
-        const bot = { x: width / 2 - paddleWidth / 2, y: marginY, w: paddleWidth, h: paddleHeight };
         
         const ball = { 
             x: width / 2, y: height / 2, 
