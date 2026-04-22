@@ -210,12 +210,10 @@
         let bot = { x: 0, y: 0, w: paddleWidth, h: paddleHeight };
         
         function resize() {
-            const dpr = window.devicePixelRatio || 1;
             width = window.innerWidth;
             height = window.innerHeight;
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
-            ctx.scale(dpr, dpr);
+            canvas.width = width;
+            canvas.height = height;
             
             // Update paddle positions after resize
             player.x = width / 2 - paddleWidth / 2;
