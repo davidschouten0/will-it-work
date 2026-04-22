@@ -26,8 +26,6 @@
 
         canvas {
             display: block;
-            width: 100vw;
-            height: 100vh;
         }
 
         /* Premium UI Overlays */
@@ -210,10 +208,21 @@
         let bot = { x: 0, y: 0, w: paddleWidth, h: paddleHeight };
         
         function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            // Get the true inner dimensions of the window
             width = window.innerWidth;
             height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
+            
+            // Set the CSS size of the canvas to exactly match the window
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            // Scale the internal canvas resolution for Retina displays
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            
+            // Normalize the coordinate system
+            ctx.scale(dpr, dpr);
             
             // Update paddle positions after resize
             player.x = width / 2 - paddleWidth / 2;
@@ -221,7 +230,6 @@
             bot.x = width / 2 - paddleWidth / 2;
             bot.y = marginY;
             
-            // Reset ball to center if not playing
             if(gameState === 'start') {
                 ball.x = width / 2;
                 ball.y = height / 2;
