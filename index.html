@@ -209,6 +209,12 @@
         let player = { x: 0, y: 0, w: paddleWidth, h: paddleHeight };
         let bot = { x: 0, y: 0, w: paddleWidth, h: paddleHeight };
         
+        let gameState = 'start'; 
+        let playerLives = 3;
+        let botLives = 3;
+        let botScore = 0;
+        let playerScore = 0;
+
         function resize() {
             width = window.innerWidth;
             height = window.innerHeight;
@@ -228,14 +234,6 @@
         }
         window.addEventListener('resize', resize);
         resize(); 
-        
-        let gameState = 'start'; 
-        let playerLives = 3;
-        let botLives = 3;
-        let botScore = 0;
-        let playerScore = 0;
-
-        // Collision Boxes (Unsichtbar, werden für Physik genutzt)
         
         const ball = { 
             x: width / 2, y: height / 2, 
@@ -258,6 +256,11 @@
             if (player.x + player.w > width - 15) player.x = width - 15 - player.w;
         }
 
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            movePlayer(e.touches[0].clientX);
+        });
+        
         canvas.addEventListener('touchmove', (e) => {
             e.preventDefault(); 
             movePlayer(e.touches[0].clientX);
