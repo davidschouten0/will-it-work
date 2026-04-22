@@ -12,9 +12,11 @@
             --heart: #ff6b9d;
         }
 
-        body {
+        html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
             background-color: var(--court-dark);
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Roboto, Helvetica, sans-serif;
@@ -221,8 +223,8 @@
             canvas.width = width * dpr;
             canvas.height = height * dpr;
             
-            // Normalize the coordinate system
-            ctx.scale(dpr, dpr);
+            // Reset transform and normalize the coordinate system
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             
             // Update paddle positions after resize
             player.x = width / 2 - paddleWidth / 2;
