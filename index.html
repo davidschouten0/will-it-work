@@ -215,6 +215,13 @@
         let botScore = 0;
         let playerScore = 0;
 
+        const ball = { 
+            x: 0, y: 0, 
+            size: 12, dx: 0, dy: 0, 
+            baseSpeed: 5, speed: 5, maxSpeed: 11, speedIncrement: 0.12,
+            spin: 0
+        };
+
         function resize() {
             width = window.innerWidth;
             height = window.innerHeight;
@@ -235,13 +242,6 @@
         window.addEventListener('resize', resize);
         resize(); 
         
-        const ball = { 
-            x: width / 2, y: height / 2, 
-            size: 12, dx: 0, dy: 0, 
-            baseSpeed: 5, speed: 5, maxSpeed: 11, speedIncrement: 0.12,
-            spin: 0
-        };
-
         let trails = [];
         let particles = [];
         let combo = 0;
